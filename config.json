@@ -1,5 +1,5 @@
 {
-  "watchlist": ["SPY", "QQQ", "AAPL", "MSFT", "NVDA", "AMD", "AMZN", "META", "GOOGL", "TSLA", "XLU", "XLF", "XLE", "GDX", "SLV", "EEM", "BAC", "F", "T", "PFE", "INTC"],
+  "watchlist": ["SPY", "QQQ", "AAPL", "MSFT", "NVDA", "AMD", "AMZN", "META", "GOOGL", "TSLA"],
   "strategy": {
     "swing_n": 2,
     "lookback_bars": 40,

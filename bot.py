@@ -1,13 +1,13 @@
 """
-ICC swing/day trading bot  (Alpaca + Finnhub + OpenAI, run by GitHub Actions)
+ICC swing/day trading bot  (Alpaca + FMP + OpenAI, run by GitHub Actions)
 
 Per run (every ~15 min during market hours):
   1. Safety: market open? not too close to open/close? paper-mode guard.
-  2. Finnhub day filter: skip early-close days, high-impact US macro days, and
-     symbols with earnings yesterday/today/tomorrow.
+  2. Day filter: Alpaca calendar (early closes) + Financial Modeling Prep (high-impact US macro
+     days, earnings yesterday/today/tomorrow).
   3. For each watchlist symbol: pull 1H + 15m bars (Alpaca) and run the rule-based
      ICC detector (icc.py).
-  4. OpenAI reviews each rule-based setup (+ Finnhub headlines) and can only APPROVE or VETO.
+  4. OpenAI reviews each rule-based setup (+ FMP headlines) and can only APPROVE or VETO.
      It never changes entry/stop/target. If the API fails, the trade is skipped.
   5. Alpaca bracket order (entry + stop + target), risk-based position size.
 
@@ -32,7 +32,7 @@ from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 from alpaca.trading.client import TradingClient
 from alpaca.trading.enums import OrderClass, OrderSide, QueryOrderStatus, TimeInForce
-from alpaca.trading.requests import GetOrdersRequest, MarketOrderRequest, StopLossRequest, TakeProfitRequest
+from alpaca.trading.requests import GetCalendarRequest, GetOrdersRequest, MarketOrderRequest, StopLossRequest, TakeProfitRequest
 
 import icc
 
@@ -65,39 +65,52 @@ def record(event: dict):
         f.write(json.dumps(event, default=str) + "\n")
 
 
-# ----------------------------------------------------------------------------- finnhub
-def fh(path: str, **params):
+# ----------------------------------------------------------------------------- day filter (Alpaca calendar + FMP)
+def fmp(path: str, **params):
+    """Call Financial Modeling Prep's /stable API. Raises on HTTP errors and on 200-with-error bodies."""
     r = requests.get(
-        f"https://finnhub.io/api/v1/{path}",
-        params={**params, "token": need("FINNHUB_API_KEY")},
+        f"https://financialmodelingprep.com/stable/{path}",
+        params={**params, "apikey": need("FMP_API_KEY")},
         timeout=20,
     )
     r.raise_for_status()
-    return r.json()
+    data = r.json()
+    if isinstance(data, dict) and ("Error Message" in data or "error" in data):
+        raise RuntimeError(str(data.get("Error Message") or data.get("error"))[:200])
+    return data
 
 
-def day_check(cfg: dict, today: dt.date) -> tuple[bool, str]:
-    """Return (ok_to_trade, reason). Fails closed if Finnhub holiday data is unreachable."""
-    # 1) market holidays / early closes
-    hol = fh("stock/market-holiday", exchange="US").get("data", [])
-    for h in hol:
-        if h.get("atDate") == today.isoformat():
-            hours = h.get("tradingHour") or ""
-            return False, f"market holiday / early close today: {h.get('eventName')} {hours}"
+def session_check(trading: TradingClient, today: dt.date) -> tuple[bool, str]:
+    """Holiday / early-close check from Alpaca's own market calendar (free, no extra key)."""
+    cal = trading.get_calendar(GetCalendarRequest(start=today, end=today))
+    if not cal or str(cal[0].date)[:10] != today.isoformat():
+        return False, "not a trading day"
+    close = cal[0].close
+    close_t = close.time() if isinstance(close, dt.datetime) else close
+    if close_t < dt.time(16, 0):
+        return False, f"early close today ({close_t})"
+    return True, "ok"
 
-    # 2) high-impact US macro events (economic calendar is a premium Finnhub endpoint;
-    #    fall back to the dates listed in config.json if the plan does not include it)
+
+def day_check(cfg: dict, today: dt.date, trading: TradingClient) -> tuple[bool, str]:
+    """Return (ok_to_trade, reason). Fails closed if the session check cannot run."""
+    ok, why = session_check(trading, today)
+    if not ok:
+        return False, why
+
+    # High-impact US macro events from FMP. If your FMP plan does not include the economic
+    # calendar, fall back to the dates listed in config.json -> filters.blackout_dates.
     d = today.isoformat()
     try:
-        ev = fh("calendar/economic").get("economicCalendar", [])
-        hits = [e for e in ev
-                if str(e.get("time", ""))[:10] == d
+        events = fmp("economic-calendar", **{"from": d, "to": d})
+        hits = [e for e in events
+                if str(e.get("date", ""))[:10] == d
                 and e.get("country") == "US"
                 and str(e.get("impact", "")).lower() == "high"]
         if hits:
             return False, "high-impact US event: " + ", ".join(e.get("event", "?") for e in hits[:3])
-    except requests.HTTPError as e:
-        log.warning("Finnhub economic calendar unavailable (%s); using config blackout_dates", e)
+    except (requests.HTTPError, RuntimeError) as e:
+        log.warning("FMP economic calendar unavailable (%s); using config blackout_dates", e)
         if d in cfg["filters"]["blackout_dates"]:
             return False, "date is in config blackout_dates (FOMC/CPI/NFP/etc.)"
     return True, "ok"
@@ -105,16 +118,16 @@ def day_check(cfg: dict, today: dt.date) -> tuple[bool, str]:
 
 def earnings_blocked(symbols: list[str], today: dt.date, window_days: int) -> set[str]:
     lo, hi = today - dt.timedelta(days=window_days), today + dt.timedelta(days=window_days)
-    cal = fh("calendar/earnings", **{"from": lo.isoformat(), "to": hi.isoformat()}).get("earningsCalendar", [])
+    cal = fmp("earnings-calendar", **{"from": lo.isoformat(), "to": hi.isoformat()})
     return {c["symbol"] for c in cal if c.get("symbol") in symbols}
 
 
 def headlines(symbol: str, today: dt.date, n: int = 5) -> list[str]:
+    """Recent headlines as context for the AI review. Best effort: never blocks a trade."""
     try:
-        items = fh("company-news", symbol=symbol,
-                   **{"from": (today - dt.timedelta(days=2)).isoformat(), "to": today.isoformat()})
-        return [i["headline"] for i in items[:n]]
-    except Exception as e:  # news is context only; never block on it
+        items = fmp("news/stock", symbols=symbol, limit=n)
+        return [i.get("title", "") for i in items[:n] if i.get("title")]
+    except Exception as e:
         log.warning("news fetch failed for %s: %s", symbol, e)
         return []
 
@@ -220,14 +233,14 @@ def main():
         log.info("Within last %s min of the session; no new entries.", cfg["filters"]["no_new_trades_last_minutes"])
         return
 
-    # --- Finnhub day filter (fails closed)
+    # --- day filter: Alpaca calendar + FMP (fails closed)
     today = now_et.date()
     try:
-        ok, why = day_check(cfg, today)
+        ok, why = day_check(cfg, today, trading)
         blocked = earnings_blocked(cfg["watchlist"], today, cfg["filters"]["earnings_window_days"])
     except Exception as e:
-        log.error("Finnhub check failed (%s). Failing closed: no trades this run.", e)
-        record({"event": "finnhub_failure", "error": str(e)})
+        log.error("Day-filter check failed (%s). Failing closed: no trades this run.", e)
+        record({"event": "day_filter_failure", "error": str(e)})
         return
     if not ok:
         log.info("Skipping day: %s", why)
