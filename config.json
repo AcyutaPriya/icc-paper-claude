@@ -1,12 +1,23 @@
 {
-  "watchlist": ["SPY", "QQQ", "AAPL", "MSFT", "NVDA", "AMD", "AMZN", "META", "GOOGL", "TSLA"],
+  "watchlist": [
+    "SPY",
+    "QQQ",
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "AMD",
+    "AMZN",
+    "META",
+    "GOOGL",
+    "TSLA"
+  ],
   "strategy": {
     "swing_n": 2,
     "lookback_bars": 40,
     "impulse_atr": 1.5,
     "zone_atr": 0.5,
     "bounce_atr": 0.3,
-    "min_retrace": 0.30,
+    "min_retrace": 0.3,
     "max_retrace": 0.85,
     "min_touches": 2,
     "stop_atr": 0.25,
@@ -17,7 +28,7 @@
   },
   "risk": {
     "risk_per_trade_pct": 0.005,
-    "max_position_pct": 0.10,
+    "max_position_pct": 0.1,
     "max_open_positions": 3,
     "max_trades_per_day": 3
   },
@@ -25,7 +36,11 @@
     "skip_first_minutes": 15,
     "no_new_trades_last_minutes": 45,
     "earnings_window_days": 1,
-    "blackout_dates": ["2026-12-09"]
+    "blackout_dates": [
+      "2026-12-09"
+    ],
+    "use_fmp_economic_calendar": false,
+    "manual_earnings_dates": {}
   },
   "ai": {
     "min_confidence": 60

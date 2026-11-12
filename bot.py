@@ -3,11 +3,11 @@ ICC swing/day trading bot  (Alpaca + FMP + OpenAI, run by GitHub Actions)
 
 Per run (every ~15 min during market hours):
   1. Safety: market open? not too close to open/close? paper-mode guard.
-  2. Day filter: Alpaca calendar (early closes) + Financial Modeling Prep (high-impact US macro
-     days, earnings yesterday/today/tomorrow).
+  2. Day filter: Alpaca calendar (early closes), your blackout dates (FOMC/CPI/jobs), and the
+     FMP free-plan earnings calendar (earnings yesterday/today/tomorrow).
   3. For each watchlist symbol: pull 1H + 15m bars (Alpaca) and run the rule-based
      ICC detector (icc.py).
-  4. OpenAI reviews each rule-based setup (+ FMP headlines) and can only APPROVE or VETO.
+  4. OpenAI reviews each rule-based setup (+ Alpaca news headlines) and can only APPROVE or VETO.
      It never changes entry/stop/target. If the API fails, the trade is skipped.
   5. Alpaca bracket order (entry + stop + target), risk-based position size.
 
@@ -28,7 +28,8 @@ import requests
 from openai import OpenAI
 from alpaca.data.enums import DataFeed
 from alpaca.data.historical import StockHistoricalDataClient
-from alpaca.data.requests import StockBarsRequest
+from alpaca.data.historical.news import NewsClient
+from alpaca.data.requests import NewsRequest, StockBarsRequest
 from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 from alpaca.trading.client import TradingClient
 from alpaca.trading.enums import OrderClass, OrderSide, QueryOrderStatus, TimeInForce
@@ -98,35 +99,47 @@ def day_check(cfg: dict, today: dt.date, trading: TradingClient) -> tuple[bool, 
     if not ok:
         return False, why
 
-    # High-impact US macro events from FMP. If your FMP plan does not include the economic
-    # calendar, fall back to the dates listed in config.json -> filters.blackout_dates.
+    # High-impact US macro days (FOMC / CPI / jobs report ...).
+    # FMP's free plan does not clearly include the economic calendar, so by default the bot uses
+    # the dates you list in config.json -> filters.blackout_dates. Set
+    # filters.use_fmp_economic_calendar to true only if your FMP plan includes that endpoint.
     d = today.isoformat()
-    try:
-        events = fmp("economic-calendar", **{"from": d, "to": d})
-        hits = [e for e in events
-                if str(e.get("date", ""))[:10] == d
-                and e.get("country") == "US"
-                and str(e.get("impact", "")).lower() == "high"]
-        if hits:
-            return False, "high-impact US event: " + ", ".join(e.get("event", "?") for e in hits[:3])
-    except (requests.HTTPError, RuntimeError) as e:
-        log.warning("FMP economic calendar unavailable (%s); using config blackout_dates", e)
-        if d in cfg["filters"]["blackout_dates"]:
-            return False, "date is in config blackout_dates (FOMC/CPI/NFP/etc.)"
+    if cfg["filters"].get("use_fmp_economic_calendar", False):
+        try:
+            events = fmp("economic-calendar", **{"from": d, "to": d})
+            hits = [e for e in events
+                    if str(e.get("date", ""))[:10] == d
+                    and e.get("country") == "US"
+                    and str(e.get("impact", "")).lower() == "high"]
+            if hits:
+                return False, "high-impact US event: " + ", ".join(e.get("event", "?") for e in hits[:3])
+        except (requests.HTTPError, RuntimeError) as e:
+            log.warning("FMP economic calendar unavailable (%s); using config blackout_dates", e)
+    if d in cfg["filters"]["blackout_dates"]:
+        return False, "date is in config blackout_dates (FOMC/CPI/NFP/etc.)"
     return True, "ok"
 
 
-def earnings_blocked(symbols: list[str], today: dt.date, window_days: int) -> set[str]:
+def earnings_blocked(symbols: list[str], today: dt.date, window_days: int,
+                     manual: dict | None = None) -> set[str]:
+    """Symbols with earnings within +/- window_days.
+    FMP's free plan only covers a limited list of symbols, so `manual` (config.json ->
+    filters.manual_earnings_dates, e.g. {"BAC": ["2027-01-14"]}) is merged in as a backstop."""
     lo, hi = today - dt.timedelta(days=window_days), today + dt.timedelta(days=window_days)
     cal = fmp("earnings-calendar", **{"from": lo.isoformat(), "to": hi.isoformat()})
-    return {c["symbol"] for c in cal if c.get("symbol") in symbols}
+    out = {c["symbol"] for c in cal if c.get("symbol") in symbols}
+    for sym, dates in (manual or {}).items():
+        if sym in symbols and any(lo.isoformat() <= d <= hi.isoformat() for d in dates):
+            out.add(sym)
+    return out
 
 
-def headlines(symbol: str, today: dt.date, n: int = 5) -> list[str]:
-    """Recent headlines as context for the AI review. Best effort: never blocks a trade."""
+def headlines(news_client: NewsClient, symbol: str, n: int = 5) -> list[str]:
+    """Recent headlines (Alpaca news API, included with your Alpaca keys) as context for the AI
+    review. Best effort: never blocks a trade."""
     try:
-        items = fmp("news/stock", symbols=symbol, limit=n)
-        return [i.get("title", "") for i in items[:n] if i.get("title")]
+        ns = news_client.get_news(NewsRequest(symbols=symbol, limit=n))
+        return [x.headline for x in ns.data.get("news", [])[:n]]
     except Exception as e:
         log.warning("news fetch failed for %s: %s", symbol, e)
         return []
@@ -214,6 +227,7 @@ def main():
 
     trading = TradingClient(need("ALPACA_API_KEY"), need("ALPACA_SECRET_KEY"), paper=paper)
     data = StockHistoricalDataClient(need("ALPACA_API_KEY"), need("ALPACA_SECRET_KEY"))
+    news = NewsClient(need("ALPACA_API_KEY"), need("ALPACA_SECRET_KEY"))
     ai = OpenAI(api_key=need("OPENAI_API_KEY"))
     model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     log.info("mode=%s dry_run=%s model=%s", "PAPER" if paper else "LIVE", args.dry_run, model)
@@ -233,11 +247,12 @@ def main():
         log.info("Within last %s min of the session; no new entries.", cfg["filters"]["no_new_trades_last_minutes"])
         return
 
-    # --- day filter: Alpaca calendar + FMP (fails closed)
+    # --- day filter: Alpaca calendar + blackout dates + FMP earnings (fails closed)
     today = now_et.date()
     try:
         ok, why = day_check(cfg, today, trading)
-        blocked = earnings_blocked(cfg["watchlist"], today, cfg["filters"]["earnings_window_days"])
+        blocked = earnings_blocked(cfg["watchlist"], today, cfg["filters"]["earnings_window_days"],
+                                   cfg["filters"].get("manual_earnings_dates"))
     except Exception as e:
         log.error("Day-filter check failed (%s). Failing closed: no trades this run.", e)
         record({"event": "day_filter_failure", "error": str(e)})
@@ -282,7 +297,7 @@ def main():
                 if not cfg["strategy"]["allow_shorts"] or not trading.get_asset(sym).shortable:
                     continue
 
-            review = ai_review(ai, model, setup, m15, headlines(sym, today))
+            review = ai_review(ai, model, setup, m15, headlines(news, sym))
             approved = bool(review.get("approve")) and int(review.get("confidence", 0)) >= cfg["ai"]["min_confidence"]
             record({"event": "setup", "setup": setup.to_dict(), "ai": review, "approved": approved})
             if not approved:
