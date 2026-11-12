@@ -1,0 +1,6 @@
+alpaca-py>=0.30
+openai>=1.40
+pandas>=2.0
+numpy>=1.26
+requests>=2.31
+tzdata
