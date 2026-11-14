@@ -36,6 +36,7 @@ from alpaca.trading.enums import OrderClass, OrderSide, QueryOrderStatus, TimeIn
 from alpaca.trading.requests import GetCalendarRequest, GetOrdersRequest, MarketOrderRequest, StopLossRequest, TakeProfitRequest
 
 import icc
+from diary import Diary
 
 ET = ZoneInfo("America/New_York")
 UTC = dt.timezone.utc
@@ -214,15 +215,38 @@ def submit(trading: TradingClient, s: icc.Setup, qty: int, today: dt.date):
 
 
 # ----------------------------------------------------------------------------- main
+def end_of_day_snapshot(trading: TradingClient, diary: Diary):
+    start = dt.datetime.now(ET).replace(hour=0, minute=0, second=0, microsecond=0)
+    for o in trading.get_orders(GetOrdersRequest(status=QueryOrderStatus.ALL, after=start, limit=200)):
+        if (o.client_order_id or "").startswith("icc-") and o.filled_qty and float(o.filled_qty) > 0:
+            diary.eod.append(f"Filled today: {o.side.value} {o.filled_qty} {o.symbol} @ {o.filled_avg_price}")
+    for p in trading.get_all_positions():
+        diary.eod.append(f"Open: {p.qty} {p.symbol}, entry {float(p.avg_entry_price):.2f}, "
+                         f"unrealized P/L ${float(p.unrealized_pl):,.2f}")
+    if not diary.eod:
+        diary.eod.append("No fills and no open positions.")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true", help="analyse and log, but place no orders")
     args = ap.parse_args()
-
-    cfg = load_config()
     paper = os.getenv("ALPACA_PAPER", "true").lower() != "false"
+    diary = Diary(paper, args.dry_run)
+    try:
+        run(args, paper, diary)
+    except Exception as e:
+        diary.result(f"Run crashed: {type(e).__name__}: {str(e)[:200]}")
+        raise
+    finally:
+        diary.flush()
+
+
+def run(args, paper: bool, diary: Diary):
+    cfg = load_config()
     if not paper and os.getenv("LIVE_CONFIRM") != "I_UNDERSTAND_THE_RISKS":
         log.error("Live trading requires LIVE_CONFIRM=I_UNDERSTAND_THE_RISKS. Refusing to run.")
+        diary.silent = True
         sys.exit(1)
 
     trading = TradingClient(need("ALPACA_API_KEY"), need("ALPACA_SECRET_KEY"), paper=paper)
@@ -236,18 +260,25 @@ def main():
     clock = trading.get_clock()
     if not clock.is_open:
         log.info("Market closed. Nothing to do.")
+        diary.silent = True          # no diary noise outside market hours
         return
     now_et = dt.datetime.now(ET)
     mins_since_open = (now_et - now_et.replace(hour=9, minute=30, second=0, microsecond=0)).total_seconds() / 60
     mins_to_close = (clock.next_close - clock.timestamp).total_seconds() / 60
+    if mins_to_close < 20:
+        end_of_day_snapshot(trading, diary)
     if mins_since_open < cfg["filters"]["skip_first_minutes"]:
-        log.info("Within first %s min of the open; skipping.", cfg["filters"]["skip_first_minutes"])
+        msg = f"Within the first {cfg['filters']['skip_first_minutes']} min of the open; waiting for it to settle."
+        log.info(msg)
+        diary.result("Skipped: " + msg)
         return
     if mins_to_close < cfg["filters"]["no_new_trades_last_minutes"]:
-        log.info("Within last %s min of the session; no new entries.", cfg["filters"]["no_new_trades_last_minutes"])
+        msg = f"Within the last {cfg['filters']['no_new_trades_last_minutes']} min of the session; no new entries."
+        log.info(msg)
+        diary.result("Skipped: " + msg)
         return
 
-    # --- day filter: Alpaca calendar + blackout dates + FMP earnings (fails closed)
+    # --- day filter (fails closed)
     today = now_et.date()
     try:
         ok, why = day_check(cfg, today, trading)
@@ -256,13 +287,18 @@ def main():
     except Exception as e:
         log.error("Day-filter check failed (%s). Failing closed: no trades this run.", e)
         record({"event": "day_filter_failure", "error": str(e)})
+        diary.result(f"Skipped: day-filter data failed ({type(e).__name__}); failing closed, no trades.")
+        diary.fact(f"Error: {str(e)[:200]}")
         return
     if not ok:
         log.info("Skipping day: %s", why)
         record({"event": "day_blocked", "reason": why})
+        diary.result(f"Skipped the whole day: {why}")
         return
+    diary.fact("Day filter: clear (open session, not a blackout date)")
     if blocked:
         log.info("Earnings filter excludes: %s", sorted(blocked))
+        diary.fact(f"Earnings filter excluded: {', '.join(sorted(blocked))}")
 
     # --- account state
     acct = trading.get_account()
@@ -273,55 +309,79 @@ def main():
     slots = cfg["risk"]["max_open_positions"] - len(held)
     trades_left = cfg["risk"]["max_trades_per_day"] - todays_bot_orders(trading)
     log.info("equity=%.2f open_positions=%d slots=%d trades_left_today=%d", equity, len(held), slots, trades_left)
+    diary.fact(f"Account: equity ${equity:,.2f}, {len(held)} open position(s), "
+               f"{max(slots, 0)} slot(s) and {max(trades_left, 0)} trade(s) left today")
+    if slots <= 0 or trades_left <= 0:
+        diary.result("No new trades: " + ("position limit reached" if slots <= 0 else "daily trade limit reached"))
 
     # --- scan
     for sym in cfg["watchlist"]:
         if slots <= 0 or trades_left <= 0:
             break
-        if sym in blocked or sym in busy:
+        if sym in blocked:
+            diary.note(sym, "skipped, earnings window")
+            continue
+        if sym in busy:
+            diary.note(sym, "skipped, already holding it or has an open order")
             continue
         try:
             h1 = get_bars(data, sym, TimeFrame(1, TimeFrameUnit.Hour), 20, pd.Timedelta(hours=1))
             m15 = get_bars(data, sym, TimeFrame(15, TimeFrameUnit.Minute), 6, pd.Timedelta(minutes=15))
             if len(h1) < 30 or len(m15) < 10:
+                diary.note(sym, f"skipped, not enough data from Alpaca ({len(h1)} 1H / {len(m15)} 15m bars)")
                 continue
-            setup = icc.detect(sym, h1, m15, cfg["strategy"])
+            why_not: dict = {}
+            setup = icc.detect(sym, h1, m15, cfg["strategy"], why_not)
             if not setup:
+                if why_not.get("stage", 0) >= 1:
+                    diary.note(sym, f"no entry: {why_not['msg']}")
+                else:
+                    diary.quiet(sym)
                 continue
             # only act on a *fresh* continuation trigger (last completed 15m bar)
             if (pd.Timestamp.now(tz="UTC") - (m15.index[-1] + pd.Timedelta(minutes=15))) > pd.Timedelta(minutes=20):
+                diary.note(sym, "setup found but stale (trigger candle is more than 20 min old); not chasing")
                 continue
             log.info("SETUP %s", setup.to_dict())
+            desc = (f"entry ~{setup.entry:.2f}, stop {setup.stop:.2f}, "
+                    f"target {setup.target:.2f}, R:R {setup.rr:.1f}, {setup.touches} touches")
 
             if setup.side == "short":
                 if not cfg["strategy"]["allow_shorts"] or not trading.get_asset(sym).shortable:
+                    diary.note(sym, f"{desc}; skipped, shorting not allowed or asset not shortable")
                     continue
 
             review = ai_review(ai, model, setup, m15, headlines(news, sym))
             approved = bool(review.get("approve")) and int(review.get("confidence", 0)) >= cfg["ai"]["min_confidence"]
             record({"event": "setup", "setup": setup.to_dict(), "ai": review, "approved": approved})
+            ai_txt = f"AI {'approved' if approved else 'vetoed'} ({review.get('confidence')}%): {review.get('reason')}"
             if not approved:
                 log.info("AI vetoed %s: %s", sym, review.get("reason"))
+                diary.note(sym, f"{desc}. {ai_txt}")
                 continue
 
             qty = position_size(equity, setup.entry, setup.stop,
                                 cfg["risk"]["risk_per_trade_pct"], cfg["risk"]["max_position_pct"])
             if qty < 1:
                 log.info("Position size < 1 share for %s; skipping.", sym)
+                diary.note(sym, f"{desc}. {ai_txt}. Skipped: position size under 1 share at current risk limits")
                 continue
 
             if args.dry_run:
                 log.info("[DRY RUN] would %s %d %s  stop=%.2f target=%.2f", setup.side, qty, sym, setup.stop, setup.target)
                 record({"event": "dry_run_order", "symbol": sym, "qty": qty, "setup": setup.to_dict()})
+                diary.trade(f"**{sym}**: WOULD {setup.side.upper()} {qty} sh. {desc}. {ai_txt}")
             else:
                 o = submit(trading, setup, qty, today)
                 log.info("ORDER SUBMITTED %s id=%s", sym, o.id)
                 record({"event": "order", "symbol": sym, "qty": qty, "order_id": str(o.id), "setup": setup.to_dict()})
+                diary.trade(f"**{sym}**: {setup.side.upper()} {qty} sh. {desc}. {ai_txt}")
             slots -= 1
             trades_left -= 1
         except Exception as e:
             log.exception("Error processing %s: %s", sym, e)
             record({"event": "error", "symbol": sym, "error": str(e)})
+            diary.note(sym, f"error while processing: {str(e)[:150]}")
 
 
 if __name__ == "__main__":

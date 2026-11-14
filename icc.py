@@ -90,16 +90,25 @@ def count_touches(m: pd.DataFrame, zone_hi: float, bounce: float):
     return touches, last_idx
 
 
-def _find_long(h1: pd.DataFrame, m15: pd.DataFrame, cfg: dict):
+def _find_long(h1: pd.DataFrame, m15: pd.DataFrame, cfg: dict, why: dict | None = None):
+    """Long-side search. If `why` is given it is filled with the furthest stage reached and a
+    plain-English reason, so the bot's diary can explain a no-trade."""
+    def mark(stage: int, msg: str):
+        if why is not None and stage > why.get("stage", -1):
+            why["stage"], why["msg"] = stage, msg
+
     n = cfg["swing_n"]
     if len(h1) < 30 or len(m15) < 10:
+        mark(0, "not enough bars yet")
         return None
     atr = atr_last(h1)
     if not np.isfinite(atr) or atr <= 0:
+        mark(0, "ATR unavailable")
         return None
     zone = cfg["zone_atr"] * atr
     sh, _ = swing_points(h1, n)
     C, H, L = h1["close"].values, h1["high"].values, h1["low"].values
+    mark(0, "no recent breakout above a swing high (no indication)")
 
     for pos in range(len(sh) - 1, -1, -1):
         s = sh[pos]
@@ -110,40 +119,53 @@ def _find_long(h1: pd.DataFrame, m15: pd.DataFrame, cfg: dict):
         if k is None:
             continue
         if cfg["require_mss"] and pos > 0 and not (level < H[sh[pos - 1]]):
-            continue  # broken swing high was not a lower high -> not a reversal
+            mark(0, "breakout was not a trend reversal (MSS required)")
+            continue
         peak_i = k + int(np.argmax(H[k:]))
         if peak_i >= len(h1) - 1:
-            continue  # correction has not started
+            mark(1, "fresh breakout; correction has not started yet")
+            continue
         peak = float(H[peak_i])
         leg_low = float(L[s:k + 1].min())
         if peak - leg_low < cfg["impulse_atr"] * atr:
+            mark(1, f"breakout too weak (under {cfg['impulse_atr']} ATR)")
             continue
 
         post = h1.iloc[peak_i + 1:]
         corr_low = float(post["low"].min())
-        if corr_low <= leg_low:
-            continue
-        if (post["close"] < level - zone).any():
+        if corr_low <= leg_low or (post["close"] < level - zone).any():
+            mark(2, "pullback broke back through the key level; setup invalid")
             continue
         retrace = (peak - corr_low) / (peak - leg_low)
-        if not (cfg["min_retrace"] <= retrace <= cfg["max_retrace"]):
+        if retrace < cfg["min_retrace"]:
+            mark(2, f"pullback only {retrace:.0%} deep so far (needs {cfg['min_retrace']:.0%}+)")
+            continue
+        if retrace > cfg["max_retrace"]:
+            mark(2, f"pullback {retrace:.0%} deep, too deep (max {cfg['max_retrace']:.0%})")
             continue
 
         t_start = h1.index[peak_i] + pd.Timedelta(hours=1)
         m = m15[m15.index >= t_start]
-        if len(m) < 6 or (m["close"] < level - zone).any():
+        if len(m) < 6:
+            mark(3, "correction under way; waiting for more 15m bars")
+            continue
+        if (m["close"] < level - zone).any():
+            mark(2, "15m closed through the key zone; setup invalid")
             continue
         zone_hi = level + zone
         touches, last_idx = count_touches(m, zone_hi, cfg["bounce_atr"] * atr)
         if touches < cfg["min_touches"] or last_idx < 0:
+            mark(4, f"{touches}/{cfg['min_touches']} touches of the key zone; waiting")
             continue
 
         after = m.iloc[last_idx + 1:]
         if len(after) < 3:
+            mark(5, "touched the zone; waiting for the bounce to develop")
             continue
         trigger = float(after["high"].iloc[:-1].max())
         last = after.iloc[-1]
         if not last["close"] > trigger:
+            mark(5, "zone touched enough; waiting for a 15m close above the trigger high")
             continue
 
         entry = float(last["close"])
@@ -151,9 +173,11 @@ def _find_long(h1: pd.DataFrame, m15: pd.DataFrame, cfg: dict):
         stop = corr_ext - cfg["stop_atr"] * atr
         risk, reward = entry - stop, peak - entry
         if risk <= 0 or risk > cfg["max_risk_atr"] * atr:
+            mark(6, f"trigger fired but stop too wide ({risk / atr:.1f} ATR, max {cfg['max_risk_atr']})")
             continue
         rr = reward / risk
         if rr < cfg["min_rr"]:
+            mark(6, f"trigger fired but reward/risk {rr:.1f} is under {cfg['min_rr']}")
             continue
         return Setup("", "long", float(level), peak, leg_low, corr_ext, entry, stop, peak,
                      touches, float(retrace), float(atr), float(rr))
@@ -167,18 +191,28 @@ def _invert(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def detect(symbol: str, h1: pd.DataFrame, m15: pd.DataFrame, cfg: dict | None = None):
-    """Return a Setup (long or short) or None. Data must be completed bars only."""
+def detect(symbol: str, h1: pd.DataFrame, m15: pd.DataFrame, cfg: dict | None = None,
+           why: dict | None = None):
+    """Return a Setup (long or short) or None. Data must be completed bars only.
+    Pass a dict as `why` to receive {"stage", "msg", "side"}: how far the best candidate got."""
     cfg = {**DEFAULTS, **(cfg or {})}
-    s = _find_long(h1, m15, cfg)
+    wl = {} if why is not None else None
+    s = _find_long(h1, m15, cfg, wl)
     if s:
         s.symbol = symbol
         return s
+    ws = None
     if cfg["allow_shorts"]:
-        s = _find_long(_invert(h1), _invert(m15), cfg)
+        ws = {} if why is not None else None
+        s = _find_long(_invert(h1), _invert(m15), cfg, ws)
         if s:
             s.symbol, s.side = symbol, "short"
             for f in ("level", "peak", "leg_extreme", "corr_extreme", "entry", "stop", "target"):
                 setattr(s, f, -getattr(s, f))
             return s
+    if why is not None:
+        best, side = (wl or {}), "long"
+        if ws and ws.get("stage", -1) > best.get("stage", -1):
+            best, side = ws, "short"
+        why.update(stage=best.get("stage", 0), msg=best.get("msg", "no setup"), side=side)
     return None

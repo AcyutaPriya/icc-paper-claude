@@ -30,6 +30,20 @@ Guards: max 3 open positions, max 3 trades/day, no entries in the first 15 min o
 6. **Go live on paper:** the schedule (every 15 min, weekdays) is already active once the workflow is on your default branch.
    To place paper orders manually, run the workflow with dry_run = false.
 
+## The diary
+
+Every run during market hours appends a plain-English entry to `diary/YYYY-MM-DD.md` in your repo
+(the workflow commits it after each run, so it persists). Each entry shows:
+- the day-filter result and account state (equity, open positions, trades left today),
+- every order placed (or, in a dry run, that would have been placed) with entry, stop, target, R:R and the AI's verdict and reason,
+- every symbol that was close or skipped, and why (for example "1/2 touches of the key zone; waiting", "earnings window", "AI vetoed: ...", "position size under 1 share"),
+- symbols with no setup forming, in one line,
+- an end-of-day snapshot of fills and open positions (last 20 minutes of the session).
+
+Runs while the market is closed write nothing. Open the `diary/` folder on GitHub to read it.
+If the repo has branch protection that blocks pushes, the "Save diary to the repo" step will fail; the
+`decisions-*` artifact on each run still holds the raw log for 30 days.
+
 ## Tuning (`config.json`)
 
 - `watchlist`: liquid symbols only. `strategy.min_touches: 1` gives more signals (looser "2nd touch" rule).
@@ -52,6 +66,7 @@ Guards: max 3 open positions, max 3 trades/day, no entries in the first 15 min o
 ## Files
 
 ```
+diary.py                       writes the daily diary entries
 bot.py                         orchestration: day filter (Alpaca + FMP), Alpaca data/orders, OpenAI gate
 icc.py                         pure-pandas ICC detector (no network)
 test_icc.py                    offline tests (run automatically before each bot run)
