@@ -1,10 +1,9 @@
 name: ICC Bot
 
 on:
-  schedule:
-    # Every 15 min, Mon-Fri, 13:00-21:59 UTC (covers US market hours in both EST and EDT).
-    # The bot itself checks Alpaca's market clock, so off-hours runs exit immediately.
-    - cron: "*/15 13-21 * * 1-5"
+  # No GitHub `schedule:` on purpose. GitHub's scheduler can fire hours late (even after the
+  # close). Runs are started on time by an outside timer (cron-job.org) calling this
+  # workflow_dispatch trigger, see README.
   workflow_dispatch:
     inputs:
       dry_run:
