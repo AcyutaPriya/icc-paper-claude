@@ -1,5 +1,6 @@
 """
-Trading diary: a human-readable Markdown log, one file per day under diary/.
+Trading diary: a human-readable Markdown log, one file per day under diary/,
+plus diary/ALL.md with every day combined (newest first).
 
 Each bot run appends a short entry (a one-liner when the market is closed): what the day filter said,
 account state, every near-setup / skip / AI veto with the reason, and any orders placed.
@@ -70,3 +71,13 @@ class Diary:
         header = f"# Trading diary: {self.now:%A, %B %d, %Y}\n" if not path.exists() else ""
         with open(path, "a") as f:
             f.write(header + self.render())
+        rebuild_all()
+
+
+def rebuild_all():
+    """Rebuild diary/ALL.md: every daily file in one place, newest day first. It is regenerated
+    from the daily files each run, so it can never drift out of sync or duplicate entries."""
+    days = sorted(DIARY_DIR.glob("20??-??-??.md"), reverse=True)
+    parts = [f"# Trading diary: all entries\n\nNewest day first. {len(days)} day(s) logged.\n"]
+    parts += [p.read_text() for p in days]
+    (DIARY_DIR / "ALL.md").write_text("\n---\n\n".join(parts))
