@@ -27,8 +27,22 @@ Guards: max 3 open positions, max 3 trades/day, no entries in the first 15 min o
 4. *(Optional)* Variables tab: `OPENAI_MODEL` (default `gpt-4o-mini`; set to any chat model your account has).
 5. **Test:** Actions tab → *ICC Bot* → *Run workflow* with **dry_run = true**. Open the run log: you should see
    `mode=PAPER dry_run=True` and either "Market closed", a skip reason, or setups. Download the `decisions-*` artifact to see every decision.
-6. **Go live on paper:** the schedule (every 15 min, weekdays) is already active once the workflow is on your default branch.
-   To place paper orders manually, run the workflow with dry_run = false.
+6. **Go live on paper:** set up the outside timer (next section). To place paper orders by hand, run the workflow with dry_run = false.
+
+## Scheduling (cron-job.org)
+
+GitHub's own scheduler can run hours late, so an outside timer starts the workflow instead.
+Create a fine-grained GitHub token (this repo only, Actions: read and write), then in cron-job.org create
+two jobs that POST to
+`https://api.github.com/repos/YOU/REPO/actions/workflows/icc-bot.yml/dispatches`
+with headers `Authorization: Bearer TOKEN`, `Accept: application/vnd.github+json`,
+`X-GitHub-Api-Version: 2022-11-28` and body `{"ref":"main","inputs":{"dry_run":"false"}}`
+(time zone America/New_York, weekdays only):
+- Job 1: 09:46 only.
+- Job 2: hours 10-15, minutes 1, 16, 31, 46.
+
+The bot skips the first 15 min and last 45 min for new entries, and the 15:46 run writes the end-of-day diary snapshot.
+Each run uses about 1 billed Actions minute (private repos get 2,000 free per month); about 25 runs a day is roughly 525 a month.
 
 ## The diary
 
@@ -40,7 +54,7 @@ Every run during market hours appends a plain-English entry to `diary/YYYY-MM-DD
 - symbols with no setup forming, in one line,
 - an end-of-day snapshot of fills and open positions (last 20 minutes of the session).
 
-Runs while the market is closed write nothing. Open the `diary/` folder on GitHub to read it.
+Runs while the market is closed (holidays, weekends, manual runs) log a one-line "Market closed" entry with the next open time. Open the `diary/` folder on GitHub to read it.
 If the repo has branch protection that blocks pushes, the "Save diary to the repo" step will fail; the
 `decisions-*` artifact on each run still holds the raw log for 30 days.
 
@@ -72,5 +86,5 @@ icc.py                         pure-pandas ICC detector (no network)
 test_icc.py                    offline tests (run automatically before each bot run)
 config.json                    watchlist, strategy, risk, filters
 requirements.txt
-.github/workflows/icc-bot.yml  schedule + secrets wiring
+.github/workflows/icc-bot.yml  manual trigger + secrets wiring (started by cron-job.org)
 ```

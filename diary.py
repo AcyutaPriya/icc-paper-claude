@@ -1,9 +1,9 @@
 """
 Trading diary: a human-readable Markdown log, one file per day under diary/.
 
-Each bot run that does real work (market open) appends a short entry: what the day filter said,
+Each bot run appends a short entry (a one-liner when the market is closed): what the day filter said,
 account state, every near-setup / skip / AI veto with the reason, and any orders placed.
-Runs while the market is closed write nothing. The GitHub workflow commits diary/ to the repo
+The GitHub workflow commits diary/ to the repo
 so the history persists.
 """
 import datetime as dt
@@ -18,7 +18,7 @@ class Diary:
     def __init__(self, paper: bool, dry_run: bool):
         self.now = dt.datetime.now(ET)
         self.paper, self.dry_run = paper, dry_run
-        self.silent = False          # True -> write nothing (e.g. market closed)
+        self.silent = False          # True -> write nothing (used only when a run is refused before starting)
         self.headline: str | None = None
         self.facts: list[str] = []
         self.watch: list[str] = []   # near-setups, skips, AI vetoes, sizing rejects

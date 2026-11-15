@@ -260,7 +260,9 @@ def run(args, paper: bool, diary: Diary):
     clock = trading.get_clock()
     if not clock.is_open:
         log.info("Market closed. Nothing to do.")
-        diary.silent = True          # no diary noise outside market hours
+        nxt = clock.next_open.astimezone(ET)
+        diary.result("Market closed: nothing to do")
+        diary.fact(f"Next open: {nxt:%A %b %d, %I:%M %p} ET")
         return
     now_et = dt.datetime.now(ET)
     mins_since_open = (now_et - now_et.replace(hour=9, minute=30, second=0, microsecond=0)).total_seconds() / 60
