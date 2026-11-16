@@ -433,6 +433,10 @@ No setup forming: SPY
 
 No setup forming: SPY
 
+## 15:16 ET · PAPER
+**Skipped: Within the last 45 min of the session; no new entries.**
+
+
 ---
 
 # Trading diary: Sunday, November 15, 2026
