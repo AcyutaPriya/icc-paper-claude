@@ -415,6 +415,10 @@ No setup forming: SPY, QQQ, AMZN
 
 No setup forming: SPY, QQQ, AMZN
 
+## 15:16 ET · PAPER
+**Skipped: Within the last 45 min of the session; no new entries.**
+
+
 ---
 
 # Trading diary: Monday, November 16, 2026
