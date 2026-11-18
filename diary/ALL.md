@@ -135,6 +135,23 @@ No setup forming: SPY, QQQ, AMD, GOOGL
 
 No setup forming: SPY, QQQ, AMD, GOOGL
 
+## 11:31 ET · PAPER
+**No trades: nothing qualified this run**
+
+- Day filter: clear (open session, not a blackout date)
+- Earnings filter excluded: NVDA
+- Account: equity $500.00, 0 open position(s), 3 slot(s) and 3 trade(s) left today
+
+**Looked at**
+- **AAPL**: no entry: 1/2 touches of the key zone; waiting
+- **MSFT**: no entry: pullback broke back through the key level; setup invalid
+- **NVDA**: skipped, earnings window
+- **AMZN**: no entry: fresh breakout; correction has not started yet
+- **META**: no entry: pullback broke back through the key level; setup invalid
+- **TSLA**: no entry: 15m closed through the key zone; setup invalid
+
+No setup forming: SPY, QQQ, AMD, GOOGL
+
 ---
 
 # Trading diary: Tuesday, November 17, 2026
