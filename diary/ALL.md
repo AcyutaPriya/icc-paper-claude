@@ -399,6 +399,10 @@ No setup forming: SPY, QQQ, GOOGL
 
 No setup forming: SPY, QQQ, GOOGL
 
+## 15:16 ET · PAPER
+**Skipped: Within the last 45 min of the session; no new entries.**
+
+
 ---
 
 # Trading diary: Tuesday, November 17, 2026
