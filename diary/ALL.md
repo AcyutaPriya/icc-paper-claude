@@ -25,6 +25,25 @@ Newest day first. 4 day(s) logged.
 
 No setup forming: SPY, QQQ
 
+## 10:01 ET · PAPER
+**No trades: nothing qualified this run**
+
+- Day filter: clear (open session, not a blackout date)
+- Earnings filter excluded: NVDA
+- Account: equity $500.00, 0 open position(s), 3 slot(s) and 3 trade(s) left today
+
+**Looked at**
+- **AAPL**: no entry: pullback broke back through the key level; setup invalid
+- **MSFT**: no entry: pullback broke back through the key level; setup invalid
+- **NVDA**: skipped, earnings window
+- **AMD**: no entry: pullback broke back through the key level; setup invalid
+- **AMZN**: no entry: fresh breakout; correction has not started yet
+- **META**: no entry: pullback broke back through the key level; setup invalid
+- **GOOGL**: no entry: pullback broke back through the key level; setup invalid
+- **TSLA**: no entry: pullback broke back through the key level; setup invalid
+
+No setup forming: SPY, QQQ
+
 ---
 
 # Trading diary: Tuesday, November 17, 2026
