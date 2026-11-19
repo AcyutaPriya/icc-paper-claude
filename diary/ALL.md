@@ -150,6 +150,24 @@ Newest day first. 5 day(s) logged.
 - **GOOGL**: no entry: 0/2 touches of the key zone; waiting
 - **TSLA**: no entry: 1/2 touches of the key zone; waiting
 
+## 11:46 ET · PAPER
+**No trades: nothing qualified this run**
+
+- Day filter: clear (open session, not a blackout date)
+- Account: equity $500.00, 0 open position(s), 3 slot(s) and 3 trade(s) left today
+
+**Looked at**
+- **SPY**: no entry: pullback broke back through the key level; setup invalid
+- **QQQ**: no entry: 1/2 touches of the key zone; waiting
+- **AAPL**: no entry: pullback broke back through the key level; setup invalid
+- **MSFT**: no entry: 1/2 touches of the key zone; waiting
+- **NVDA**: no entry: pullback broke back through the key level; setup invalid
+- **AMD**: no entry: pullback broke back through the key level; setup invalid
+- **AMZN**: no entry: 0/2 touches of the key zone; waiting
+- **META**: no entry: pullback 87% deep, too deep (max 85%)
+- **GOOGL**: no entry: 0/2 touches of the key zone; waiting
+- **TSLA**: no entry: 1/2 touches of the key zone; waiting
+
 ---
 
 # Trading diary: Wednesday, November 18, 2026
