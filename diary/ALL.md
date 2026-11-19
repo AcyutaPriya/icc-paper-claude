@@ -96,6 +96,24 @@ Newest day first. 5 day(s) logged.
 - **GOOGL**: no entry: fresh breakout; correction has not started yet
 - **TSLA**: no entry: fresh breakout; correction has not started yet
 
+## 11:01 ET · PAPER
+**No trades: nothing qualified this run**
+
+- Day filter: clear (open session, not a blackout date)
+- Account: equity $500.00, 0 open position(s), 3 slot(s) and 3 trade(s) left today
+
+**Looked at**
+- **SPY**: no entry: pullback broke back through the key level; setup invalid
+- **QQQ**: no entry: correction under way; waiting for more 15m bars
+- **AAPL**: no entry: pullback broke back through the key level; setup invalid
+- **MSFT**: no entry: correction under way; waiting for more 15m bars
+- **NVDA**: no entry: pullback broke back through the key level; setup invalid
+- **AMD**: no entry: pullback broke back through the key level; setup invalid
+- **AMZN**: no entry: correction under way; waiting for more 15m bars
+- **META**: no entry: pullback 87% deep, too deep (max 85%)
+- **GOOGL**: no entry: correction under way; waiting for more 15m bars
+- **TSLA**: no entry: correction under way; waiting for more 15m bars
+
 ---
 
 # Trading diary: Wednesday, November 18, 2026
