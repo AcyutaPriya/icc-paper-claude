@@ -312,6 +312,24 @@ Newest day first. 6 day(s) logged.
 - **GOOGL**: no entry: pullback broke back through the key level; setup invalid
 - **TSLA**: no entry: pullback broke back through the key level; setup invalid
 
+## 14:01 ET · PAPER
+**No trades: nothing qualified this run**
+
+- Day filter: clear (open session, not a blackout date)
+- Account: equity $500.00, 0 open position(s), 3 slot(s) and 3 trade(s) left today
+
+**Looked at**
+- **SPY**: no entry: pullback broke back through the key level; setup invalid
+- **QQQ**: no entry: pullback broke back through the key level; setup invalid
+- **AAPL**: no entry: pullback broke back through the key level; setup invalid
+- **MSFT**: no entry: pullback broke back through the key level; setup invalid
+- **NVDA**: no entry: pullback broke back through the key level; setup invalid
+- **AMD**: no entry: pullback broke back through the key level; setup invalid
+- **AMZN**: no entry: pullback broke back through the key level; setup invalid
+- **META**: no entry: pullback broke back through the key level; setup invalid
+- **GOOGL**: no entry: pullback broke back through the key level; setup invalid
+- **TSLA**: no entry: pullback broke back through the key level; setup invalid
+
 ---
 
 # Trading diary: Thursday, November 19, 2026
