@@ -258,6 +258,24 @@ Newest day first. 7 day(s) logged.
 - **GOOGL**: no entry: pullback broke back through the key level; setup invalid
 - **TSLA**: no entry: touched the zone; waiting for the bounce to develop
 
+## 13:16 ET · PAPER
+**No trades: nothing qualified this run**
+
+- Day filter: clear (open session, not a blackout date)
+- Account: equity $500.00, 0 open position(s), 3 slot(s) and 3 trade(s) left today
+
+**Looked at**
+- **SPY**: no entry: pullback only 22% deep so far (needs 30%+)
+- **QQQ**: no entry: pullback only 21% deep so far (needs 30%+)
+- **AAPL**: no entry: pullback broke back through the key level; setup invalid
+- **MSFT**: no entry: pullback broke back through the key level; setup invalid
+- **NVDA**: no entry: pullback only 18% deep so far (needs 30%+)
+- **AMD**: no entry: pullback broke back through the key level; setup invalid
+- **AMZN**: no entry: pullback broke back through the key level; setup invalid
+- **META**: no entry: pullback broke back through the key level; setup invalid
+- **GOOGL**: no entry: pullback broke back through the key level; setup invalid
+- **TSLA**: no entry: touched the zone; waiting for the bounce to develop
+
 ---
 
 # Trading diary: Friday, November 20, 2026
