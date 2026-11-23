@@ -402,6 +402,10 @@ Newest day first. 7 day(s) logged.
 - **GOOGL**: no entry: pullback only 15% deep so far (needs 30%+)
 - **TSLA**: no entry: 1/2 touches of the key zone; waiting
 
+## 15:16 ET · PAPER
+**Skipped: Within the last 45 min of the session; no new entries.**
+
+
 ---
 
 # Trading diary: Friday, November 20, 2026
