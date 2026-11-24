@@ -101,6 +101,25 @@ No setup forming: AMZN
 
 No setup forming: AMZN
 
+## 11:01 ET · PAPER
+**No trades: nothing qualified this run**
+
+- Day filter: clear (open session, not a blackout date)
+- Account: equity $500.00, 0 open position(s), 3 slot(s) and 3 trade(s) left today
+
+**Looked at**
+- **SPY**: no entry: pullback broke back through the key level; setup invalid
+- **QQQ**: no entry: pullback broke back through the key level; setup invalid
+- **AAPL**: no entry: correction under way; waiting for more 15m bars
+- **MSFT**: no entry: pullback broke back through the key level; setup invalid
+- **NVDA**: no entry: pullback broke back through the key level; setup invalid
+- **AMD**: no entry: pullback broke back through the key level; setup invalid
+- **META**: no entry: touched the zone; waiting for the bounce to develop
+- **GOOGL**: no entry: pullback broke back through the key level; setup invalid
+- **TSLA**: no entry: 1/2 touches of the key zone; waiting
+
+No setup forming: AMZN
+
 ---
 
 # Trading diary: Monday, November 23, 2026
