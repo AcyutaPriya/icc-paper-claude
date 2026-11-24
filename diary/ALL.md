@@ -419,6 +419,10 @@ No setup forming: AMD, AMZN
 
 No setup forming: AMD, AMZN
 
+## 15:16 ET · PAPER
+**Skipped: Within the last 45 min of the session; no new entries.**
+
+
 ---
 
 # Trading diary: Monday, November 23, 2026
