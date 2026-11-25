@@ -343,6 +343,10 @@ No setup forming: NVDA, AMD, AMZN
 
 No setup forming: NVDA, AMD, AMZN
 
+## 15:16 ET · PAPER
+**Skipped: Within the last 45 min of the session; no new entries.**
+
+
 ---
 
 # Trading diary: Tuesday, November 24, 2026
