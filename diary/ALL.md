@@ -292,6 +292,23 @@ No setup forming: NVDA, AMD, AMZN
 
 No setup forming: NVDA, AMD, AMZN
 
+## 14:31 ET · PAPER
+**No trades: nothing qualified this run**
+
+- Day filter: clear (open session, not a blackout date)
+- Account: equity $500.00, 0 open position(s), 3 slot(s) and 3 trade(s) left today
+
+**Looked at**
+- **SPY**: no entry: pullback broke back through the key level; setup invalid
+- **QQQ**: no entry: pullback broke back through the key level; setup invalid
+- **AAPL**: no entry: fresh breakout; correction has not started yet
+- **MSFT**: no entry: pullback broke back through the key level; setup invalid
+- **META**: no entry: fresh breakout; correction has not started yet
+- **GOOGL**: no entry: pullback broke back through the key level; setup invalid
+- **TSLA**: no entry: pullback broke back through the key level; setup invalid
+
+No setup forming: NVDA, AMD, AMZN
+
 ---
 
 # Trading diary: Tuesday, November 24, 2026
