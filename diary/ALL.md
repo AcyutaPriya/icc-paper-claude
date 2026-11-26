@@ -91,6 +91,11 @@ Newest day first. 10 day(s) logged.
 
 - Next open: Friday Nov 27, 09:30 AM ET
 
+## 14:01 ET · PAPER
+**Market closed: nothing to do**
+
+- Next open: Friday Nov 27, 09:30 AM ET
+
 ---
 
 # Trading diary: Wednesday, November 25, 2026
