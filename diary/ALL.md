@@ -1,6 +1,15 @@
 # Trading diary: all entries
 
-Newest day first. 9 day(s) logged.
+Newest day first. 10 day(s) logged.
+
+---
+
+# Trading diary: Thursday, November 26, 2026
+
+## 09:46 ET · PAPER
+**Market closed: nothing to do**
+
+- Next open: Friday Nov 27, 09:30 AM ET
 
 ---
 
