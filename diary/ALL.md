@@ -61,6 +61,11 @@ Newest day first. 11 day(s) logged.
 **End-of-day snapshot**
 - No fills and no open positions.
 
+## 13:01 ET · PAPER
+**Market closed: nothing to do**
+
+- Next open: Monday Nov 30, 09:30 AM ET
+
 ---
 
 # Trading diary: Thursday, November 26, 2026
