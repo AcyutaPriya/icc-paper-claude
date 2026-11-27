@@ -1,6 +1,14 @@
 # Trading diary: all entries
 
-Newest day first. 10 day(s) logged.
+Newest day first. 11 day(s) logged.
+
+---
+
+# Trading diary: Friday, November 27, 2026
+
+## 09:46 ET · PAPER
+**Skipped the whole day: early close today (13:00:00)**
+
 
 ---
 
